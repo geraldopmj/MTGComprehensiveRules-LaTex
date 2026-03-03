@@ -1,0 +1,91 @@
+\documentclass[11pt,twoside]{book}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{ebgaramond}
+\usepackage{microtype}
+\usepackage{geometry}
+\geometry{
+	paperwidth=150mm,
+	paperheight=230mm,
+	inner=25mm,
+	outer=20mm,
+	top=25mm,
+	bottom=20mm
+}
+
+\usepackage[colorlinks=true,allcolors=black,pdfborder={0 0 0}]{hyperref}
+\usepackage{lettrine}
+\usepackage{pgfornament}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{emptypage}
+
+\renewcommand{\thesection}{\arabic{section}}
+\renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
+\renewcommand{\thesubsubsection}{\thesubsection\alph{subsubsection}}
+
+\titleformat{\chapter}[display]
+{\normalfont\Huge\scshape\centering}
+{\pgfornament[width=2cm]{71}\\[1ex]\chaptertitlename~\thechapter}
+{2ex}
+{\pgfornament[width=4cm]{84}\\[2ex]}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[LE,RO]{\thepage}
+\fancyhead[CE]{\scshape Magic: The Gathering}
+\fancyhead[CO]{\scshape Comprehensive Rules}
+\renewcommand{\headrulewidth}{0.5pt}
+
+\begin{document}
+	\thispagestyle{empty}
+	\newgeometry{margin=0pt}
+	\noindent\includegraphics[width=\paperwidth,height=\paperheight]{capa.png}\clearpage
+	
+	% volta à geometria normal SEM \restoregeometry
+	\newgeometry{
+		paperwidth=150mm,
+		paperheight=230mm,
+		inner=25mm,
+		outer=20mm,
+		top=25mm,
+		bottom=20mm
+	}
+	
+	\begin{titlepage}
+		\thispagestyle{empty}
+		\centering
+		
+		\vspace*{2cm}
+		
+		\pgfornament[width=6cm]{85}\par\vspace{2cm}
+		
+		{\fontsize{30}{36}\selectfont\scshape Magic:}\par
+		{\fontsize{22}{28}\selectfont\scshape The Gathering}\par\vspace{1cm}
+		
+		{\Large\textit{Comprehensive Rules}}\par\vspace{2cm}
+		
+		\pgfornament[width=3cm]{75}\par\vspace{2cm}
+		
+		{\large\textsc{Effective as of February 27, 2026}}\par
+		
+		\vfill
+		\pgfornament[width=6cm]{84}
+		
+	\end{titlepage}
+	
+%	\thispagestyle{empty} \frontmatter
+	\tableofcontents
+	
+	\mainmatter
+	
+\input{rules}
+
+\input{glossary}
+
+\input{credits}
+
+\end{document}
