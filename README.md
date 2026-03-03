@@ -1,51 +1,60 @@
-# Magic: The Gathering – Comprehensive Rules (LaTeX Edition)
+# Magic: The Gathering – Comprehensive Rules (Unofficial LaTeX Typesetting)
 
-This repository contains a LaTeX typeset edition of the *Magic: The Gathering Comprehensive Rules*, structured for book-style compilation.
+## Independent Typesetting Project
 
-## About the Content
+This repository contains an independently created LaTeX typesetting of the publicly released document titled *Magic: The Gathering Comprehensive Rules*, as made available by Wizards of the Coast LLC.
 
-The rules included here correspond to the official document published by Wizards of the Coast:
-Magic: The Gathering Comprehensive Rules
-Effective as of February 27, 2026
-Official source: https://media.wizards.com/2026/downloads/MagicCompRules%2020260227.txt
+The purpose of this project is strictly technical and editorial: to demonstrate document structuring, typographic composition, and LaTeX-based publishing of a large, structured rules text.
 
-This project does not modify, reinterpret, or extend the official rules. The work performed consists solely of:
+No original game content has been created, modified, reinterpreted, or supplemented.
 
-* Converting the official plain-text document into LaTeX
-* Structuring sections, subsections, and internal references
-* Organizing content into modular files (rules, glossary, credits)
-* Applying typographic and editorial formatting
+## Ownership and Intellectual Property
 
-No gameplay rules, terminology, or official wording have been altered.
+Magic: The Gathering®, its name, logos, mechanics, terminology, and all related intellectual property are owned exclusively by Wizards of the Coast LLC.
 
-## Copyright and Ownership
+The Comprehensive Rules are the copyrighted property of Wizards of the Coast LLC.
 
-Magic: The Gathering is the property of Wizards of the Coast LLC.
+This repository:
 
-All Comprehensive Rules content belongs to Wizards of the Coast.
-This repository does not claim ownership of:
+* Does not claim ownership of any rule text or terminology.
+* Does not assert any rights over the underlying content.
+* Does not distribute derivative gameplay material.
+* Does not present itself as an official or authorized publication.
 
-* The game rules
-* Official terminology
-* Game mechanics
-* Any related intellectual property
+All rule text remains the intellectual property of its respective owner.
 
-This material is provided strictly as a typographic LaTeX reformatting for academic, editorial, or study purposes.
-If requested by Wizards of the Coast, the material will be removed promptly.
+## Nature of This Work
 
-## Legal Notice
+This project constitutes a formatting transformation only. The underlying content has been:
 
-This project is unofficial and not affiliated with Wizards of the Coast.
-For the authoritative and legally binding version of the rules, consult the official Wizards of the Coast publication.
-https://magic.wizards.com/en/rules
+* Converted from plain text to LaTeX markup.
+* Structured into sections, subsections, and internal references.
+* Organized into modular source files for compilation.
 
-## Repository Structure
+No substantive editorial changes have been made. The wording, structure, and rule numbering remain consistent with the publicly available source document.
 
-* `mtg_rules.tex` – Main document
-* `rules.tex` – Rules body
-* `glossary.tex` – glossary
-* `credits.tex` – credits
+This repository is not a substitute for the official publication.
 
-## Purpose
+## No Affiliation
 
-This project serves as an exercise in large-scale document structuring and professional LaTeX typesetting. It is not a replacement for the official rules publication.
+This project is not affiliated with, endorsed by, sponsored by, or approved by Wizards of the Coast LLC.
+
+Any references to Magic: The Gathering are used solely to identify the original source material.
+
+## Fair Use and Intent
+
+This repository is intended for:
+
+* Educational purposes
+* Academic or typographic study
+* Personal reference use
+
+It is not intended for commercial exploitation.
+
+If Wizards of the Coast LLC determines that this repository infringes upon its rights or exceeds acceptable use, the material will be removed upon request.
+
+## Authoritative Source
+
+For the official and legally authoritative version of the Comprehensive Rules, consult the publication made available directly by Wizards of the Coast LLC through its official website.
+
+This project exists solely as an independent LaTeX typesetting exercise.
