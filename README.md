@@ -2,7 +2,7 @@
 
 ## Independent Typesetting Project
 
-This repository contains an independently created LaTeX typesetting of the publicly released document titled *Magic: The Gathering Comprehensive Rules*, as made available by Wizards of the Coast LLC.
+This repository contains an independently created LaTeX typesetting of the publicly released document titled *Magic: The Gathering Comprehensive Rules*, as made available by Wizards of the Coast LLC  [(official rules link)](https://magic.wizards.com/en/rules).
 
 The purpose of this project is strictly technical and editorial: to demonstrate document structuring, typographic composition, and LaTeX-based publishing of a large, structured rules text.
 
