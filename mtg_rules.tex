@@ -23,15 +23,18 @@
 \usepackage{geometry}
 \usepackage{emptypage}
 
+
 \renewcommand{\thesection}{\arabic{section}}
 \renewcommand{\thesubsection}{\thesection.\arabic{subsection}}
-\renewcommand{\thesubsubsection}{\thesubsection\alph{subsubsection}}
+\renewcommand{\thesubsubsection}{\thesubsection\arabic{subsubsection}}
+
 
 \titleformat{\chapter}[display]
 {\normalfont\Huge\scshape\centering}
 {\pgfornament[width=2cm]{71}\\[1ex]\chaptertitlename~\thechapter}
 {2ex}
 {\pgfornament[width=4cm]{84}\\[2ex]}
+
 
 \pagestyle{fancy}
 \fancyhf{}
@@ -40,8 +43,9 @@
 \fancyhead[CO]{\scshape Comprehensive Rules}
 \renewcommand{\headrulewidth}{0.5pt}
 
-\begin{document}
 
+\begin{document}
+	
 	\clearpage
 	\thispagestyle{empty}
 	
@@ -156,6 +160,5 @@
 \input{glossary}
 
 \input{credits}
-
 
 \end{document}
