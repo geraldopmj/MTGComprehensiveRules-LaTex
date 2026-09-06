@@ -1,0 +1,15 @@
+.venv/
+.tmp/
+.pytest_cache/
+__pycache__/
+*.py[cod]
+
+# LaTeX intermediate files (the source .tex and final PDF remain versioned).
+latex/*.aux
+latex/*.fdb_latexmk
+latex/*.fls
+latex/*.log
+latex/*.out
+latex/*.synctex.gz
+latex/*.toc
+

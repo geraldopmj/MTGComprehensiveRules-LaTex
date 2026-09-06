@@ -85,14 +85,15 @@ loads the new rule groups and rule sections into DuckDB and rewrites
 `latex/rules.tex` with the same chapter/section/subsection style used by the
 existing LaTeX file. The job also keeps the cover/title dates in
 `latex/mtg_rules.tex` aligned with the parsed official effective date, even on a
-same-date `skipped` run.
+same-date `skipped` run. Finally, it compiles the main document twice and writes
+the finished artifact to `latex/mtg_rules.pdf`.
 
 ## ETL Overview
 
 This is a batch ETL for keeping the local LaTeX edition and the DuckDB rule
 index aligned with the official Wizards Comprehensive Rules TXT release.
 
-At a high level, each run does five things:
+At a high level, each run does six things:
 
 1. Initializes DuckDB if `data/mtg_rules.duckdb` does not exist yet.
 2. Seeds DuckDB from the current `latex/rules.tex` when the database is empty,
@@ -106,16 +107,19 @@ At a high level, each run does five things:
    and `103`, each versioned by `effective_date`.
 5. Loads the parsed version into DuckDB and publishes the LaTeX output only when
    the official effective date is newer than the latest stored version.
+6. Compiles `latex/mtg_rules.tex` from inside `latex/`, using two engine passes
+   so the table of contents and references are resolved in `latex/mtg_rules.pdf`.
 
 DuckDB is the source of truth for stored rule versions. The LaTeX files are the
 published representation used to build the PDF. If the incoming official date is
 already present in DuckDB, the run is idempotent: it reports `skipped` and does
 not rewrite `latex/rules.tex`, while still correcting stale effective-date text
-in `latex/mtg_rules.tex` if needed.
+in `latex/mtg_rules.tex` if needed. Compilation still runs, which lets the same
+command recover a missing or stale PDF without reloading the data.
 
 The ETL is intentionally small and local. There is no scheduler, queue, or
 SQLite fallback in the current project: running the CLI command performs one
-complete extract, transform, load, and LaTeX publish cycle.
+complete extract, transform, load, LaTeX publish, and PDF compilation cycle.
 
 ## How It Works
 
@@ -139,15 +143,17 @@ Main runtime stages:
 | Transform | Parse effective date, rule groups, section names, and section text. | `mtg_rules_etl/parsers.py` |
 | Load | Store versioned rows in `rule_groups` and `rules` with transactional writes. | `mtg_rules_etl/repository.py` |
 | Publish | Render `latex/rules.tex` and update cover/title effective-date text. | `mtg_rules_etl/latex.py` |
+| Compile | Run a supported LaTeX engine twice from the source directory and verify the PDF exists. | `mtg_rules_etl/compiler.py` |
 | Orchestrate | Compare dates, decide `updated` vs `skipped`, and emit structured logs. | `mtg_rules_etl/pipeline.py` |
 
 ## Architecture and Design Rationale
 
 Pattern: Pipe-and-Filter with Ports and Adapters.
 
-The pipeline is separated into extraction, parsing/validation, persistence, and
-LaTeX rendering. HTTP and DuckDB are isolated behind adapters so tests can run
-without the network and without a permanent database.
+The pipeline is separated into extraction, parsing/validation, persistence,
+LaTeX rendering, and compilation. HTTP, DuckDB, and the external LaTeX process
+are isolated behind adapters so tests can run without the network, a permanent
+database, or a locally installed TeX distribution.
 
 Local patterns:
 
@@ -157,6 +163,7 @@ Local patterns:
 | Repository | `mtg_rules_etl/repository.py` | Own DuckDB schema and parameterized writes. |
 | Use case | `mtg_rules_etl/pipeline.py` | Orchestrate one ETL run and idempotent update behavior. |
 | Renderer | `mtg_rules_etl/latex.py` | Convert parsed rules to the existing LaTeX body format. |
+| Compiler adapter | `mtg_rules_etl/compiler.py` | Run and validate bounded `pdflatex`, `xelatex`, or `lualatex` processes. |
 
 ## Specs and Contracts
 
@@ -187,12 +194,14 @@ flowchart LR
   Compare -->|New date| Load["Load DuckDB version"]
   Load --> Render["Render latex/rules.tex"]
   Render --> Cover["Update latex/mtg_rules.tex date"]
-  Cover --> SourcesReady["LaTeX sources ready for PDF build"]
+  Cover --> Compile["Compile twice with cwd=latex/"]
+  Compile --> PDF["latex/mtg_rules.pdf"]
 ```
 
 ## How To Run
 
-Create the virtual environment and install dependencies:
+Install a TeX distribution that provides `pdflatex` on `PATH`. Then create the
+virtual environment and install the Python dependencies:
 
 ```powershell
 C:\Python312\python.exe -m venv .venv
@@ -204,6 +213,17 @@ Run the ETL:
 ```powershell
 .venv\Scripts\python.exe -m mtg_rules_etl.cli --db data\mtg_rules.duckdb --rules-tex latex\rules.tex --cover-tex latex\mtg_rules.tex
 ```
+
+Those paths are already the defaults, so this is equivalent:
+
+```powershell
+.venv\Scripts\python.exe -m mtg_rules_etl.cli
+```
+
+Use `--latex-engine xelatex` or `--latex-engine lualatex` for another supported
+engine. Use `--compile-timeout SECONDS` to change the per-pass timeout. For a
+data/source-only diagnostic run, `--skip-compile` explicitly disables PDF
+compilation.
 
 ## How To Test
 
@@ -223,6 +243,7 @@ New-Item -ItemType Directory -Force .tmp | Out-Null
 | Official source behavior | `mtg_rules_etl/source.py` | source tests, SSRF host allowlist |
 | TXT or LaTeX parsing | `mtg_rules_etl/parsers.py` | parser fixtures/tests |
 | LaTeX output format and cover date replacement | `mtg_rules_etl/latex.py` | `latex/rules.tex`, `latex/mtg_rules.tex`, renderer tests |
+| LaTeX engine, passes, timeout, or diagnostics | `mtg_rules_etl/compiler.py` | compiler and pipeline tests |
 | ETL orchestration | `mtg_rules_etl/pipeline.py` | pipeline tests and logging contract |
 
 ## Operations and Troubleshooting
@@ -234,31 +255,45 @@ If a network call fails, rerun the same command after connectivity or sandbox
 permissions are fixed. A failed run may seed the old LaTeX version first; the
 next successful run will continue from that state.
 
-This ETL updates `latex/rules.tex` and the effective-date text in
-`latex/mtg_rules.tex`. It does not update `latex/glossary.tex`, `latex/credits.tex`,
-or the PDF unless that scope is added.
+If compilation fails after DuckDB or the `.tex` files were updated, fix the TeX
+error or install/select a supported engine and rerun the command. The next run
+may report `skipped` for the data load, but it still retries compilation. The
+pipeline never reports success unless the compiler returns zero and
+`latex/mtg_rules.pdf` exists.
+
+This ETL updates `latex/rules.tex`, the effective-date text in
+`latex/mtg_rules.tex`, and `latex/mtg_rules.pdf`. It reads but does not rewrite
+`latex/glossary.tex`, `latex/credits.tex`, `latex/capa.png`, or
+`latex/contracapa.png`. Obsolete duplicate `.tex` sources are not kept in the
+repository root.
 
 ## Logging and Error Handling
 
 CLI logs are JSON lines on stderr. Each lifecycle event includes UTC timestamp,
 level, logger, message, run id, and stage. The pipeline logs start, seed,
-download, parse summary, final status, and failure. It logs counts and safe URLs,
-not every rule row.
+download, parse summary, compilation start/finish, final status, and failure. It
+logs counts and safe paths/URLs, not every rule row or full compiler output. A
+compiler failure includes only a bounded diagnostic tail in the raised error.
 
 Common final statuses:
 
 | Status | Meaning |
 | --- | --- |
-| `updated` | The official date differed; DuckDB, `latex/rules.tex`, and stale cover dates were updated. |
-| `skipped` | The official date matched the latest DuckDB date; rule loading was skipped, but stale cover dates can still be corrected. |
+| `updated` | The official date differed; DuckDB and LaTeX sources were updated, then the PDF was compiled. |
+| `skipped` | The official date matched DuckDB; loading was skipped, stale cover dates could be corrected, and the PDF was compiled. |
 
 ## Security and Privacy
 
 The source adapter accepts only HTTPS URLs from `magic.wizards.com` for the
 rules page and `media.wizards.com` or `magic.wizards.com` for TXT downloads.
-DuckDB writes use parameterized statements.
+DuckDB writes use parameterized statements. Compilation uses a fixed argument
+list with no shell, an allowlist of supported engines, a per-pass timeout, checked
+return codes, and bounded diagnostics. The ETL processes public rules text and no
+personal data, so the changed flow does not introduce an LGPD data-processing
+scope.
 
 ## References
 
 - Official rules page: https://magic.wizards.com/en/rules
 - DuckDB Python API: https://duckdb.org/docs/stable/clients/python/overview
+- Python subprocess security considerations: https://docs.python.org/3/library/subprocess.html#security-considerations

@@ -9,6 +9,7 @@ from datetime import date
 from pathlib import Path
 from typing import Protocol
 
+from .compiler import LatexCompiler
 from .latex import render_rules_tex, update_cover_effective_date
 from .parsers import parse_legacy_rules_tex, parse_official_rules_txt
 from .repository import DuckDBRulesRepository
@@ -33,6 +34,8 @@ class PipelineResult:
     rules_loaded: int
     latex_updated: bool
     cover_updated: bool
+    pdf_compiled: bool
+    pdf_path: Path | None
 
 
 class RulesEtlPipeline:
@@ -42,12 +45,14 @@ class RulesEtlPipeline:
         source: RulesSource,
         latex_path: str | Path,
         cover_path: str | Path | None = None,
+        compiler: LatexCompiler | None = None,
         logger: logging.Logger | None = None,
     ) -> None:
         self.repository = repository
         self.source = source
         self.latex_path = Path(latex_path)
         self.cover_path = Path(cover_path) if cover_path else None
+        self.compiler = compiler
         self.logger = logger or LOGGER
 
     def run(self) -> PipelineResult:
@@ -72,6 +77,7 @@ class RulesEtlPipeline:
 
             if previous_effective_date == remote_document.effective_date:
                 cover_updated = self._update_cover_if_needed(remote_document.effective_date)
+                pdf_path = self._compile_pdf_if_configured(run_id)
                 result = PipelineResult(
                     status="skipped",
                     previous_effective_date=previous_effective_date,
@@ -81,6 +87,8 @@ class RulesEtlPipeline:
                     rules_loaded=0,
                     latex_updated=False,
                     cover_updated=cover_updated,
+                    pdf_compiled=pdf_path is not None,
+                    pdf_path=pdf_path,
                 )
                 self._log_finished(run_id, result, started)
                 return result
@@ -89,6 +97,7 @@ class RulesEtlPipeline:
             rendered = render_rules_tex(remote_document)
             _atomic_write_text(self.latex_path, rendered)
             cover_updated = self._update_cover_if_needed(remote_document.effective_date)
+            pdf_path = self._compile_pdf_if_configured(run_id)
             result = PipelineResult(
                 status="updated",
                 previous_effective_date=previous_effective_date,
@@ -98,6 +107,8 @@ class RulesEtlPipeline:
                 rules_loaded=len(remote_document.sections),
                 latex_updated=True,
                 cover_updated=cover_updated,
+                pdf_compiled=pdf_path is not None,
+                pdf_path=pdf_path,
             )
             self._log_finished(run_id, result, started)
             return result
@@ -134,6 +145,29 @@ class RulesEtlPipeline:
         _atomic_write_text(self.cover_path, updated_cover_text)
         return True
 
+    def _compile_pdf_if_configured(self, run_id: str) -> Path | None:
+        if self.compiler is None:
+            return None
+        if self.cover_path is None:
+            raise ValueError("A main/cover LaTeX path is required for PDF compilation.")
+
+        started = time.perf_counter()
+        self._log(
+            "latex_compile_started",
+            run_id=run_id,
+            stage="compile",
+            main_tex_path=str(self.cover_path),
+        )
+        pdf_path = self.compiler.compile(self.cover_path)
+        self._log(
+            "latex_compile_finished",
+            run_id=run_id,
+            stage="compile",
+            pdf_path=str(pdf_path),
+            duration_seconds=round(time.perf_counter() - started, 3),
+        )
+        return pdf_path
+
     def _log_finished(self, run_id: str, result: PipelineResult, started: float) -> None:
         self._log(
             "pipeline_finished",
@@ -146,6 +180,8 @@ class RulesEtlPipeline:
             rules_loaded=result.rules_loaded,
             latex_updated=result.latex_updated,
             cover_updated=result.cover_updated,
+            pdf_compiled=result.pdf_compiled,
+            pdf_path=str(result.pdf_path) if result.pdf_path else None,
             duration_seconds=round(time.perf_counter() - started, 3),
         )
 

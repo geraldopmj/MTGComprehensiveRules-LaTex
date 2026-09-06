@@ -57,6 +57,21 @@ class FakeSource:
         return FetchedRules(text=self.text, url="https://media.wizards.com/rules.txt")
 
 
+class FakeCompiler:
+    def __init__(self):
+        self.compiled_paths = []
+        self.cover_snapshots = []
+        self.rules_snapshots = []
+
+    def compile(self, main_tex_path):
+        self.compiled_paths.append(main_tex_path)
+        self.cover_snapshots.append(main_tex_path.read_text(encoding="utf-8"))
+        self.rules_snapshots.append((main_tex_path.parent / "rules.tex").read_text(encoding="utf-8"))
+        pdf_path = main_tex_path.with_suffix(".pdf")
+        pdf_path.write_bytes(b"%PDF-1.4")
+        return pdf_path
+
+
 def test_pipeline_seeds_missing_database_then_skips_same_date(tmp_path):
     latex_path = tmp_path / "rules.tex"
     latex_path.write_text(LEGACY_TEX, encoding="utf-8")
@@ -127,3 +142,52 @@ def test_pipeline_updates_stale_cover_when_rules_date_is_already_current(tmp_pat
     cover = cover_path.read_text(encoding="utf-8")
     assert "Effective as of February 27, 2026" not in cover
     assert cover.count("Effective as of June 19, 2026") == 2
+
+
+def test_pipeline_compiles_main_tex_even_when_data_load_is_skipped(tmp_path, caplog):
+    caplog.set_level("INFO")
+    latex_dir = tmp_path / "latex"
+    latex_dir.mkdir()
+    latex_path = latex_dir / "rules.tex"
+    latex_path.write_text(LEGACY_TEX, encoding="utf-8")
+    cover_path = latex_dir / "mtg_rules.tex"
+    cover_path.write_text("Effective as of February 27, 2026\n", encoding="utf-8")
+    compiler = FakeCompiler()
+
+    result = RulesEtlPipeline(
+        repository=DuckDBRulesRepository(tmp_path / "rules.duckdb"),
+        source=FakeSource(REMOTE_SAME_DATE),
+        latex_path=latex_path,
+        cover_path=cover_path,
+        compiler=compiler,
+    ).run()
+
+    assert result.status == "skipped"
+    assert result.pdf_compiled is True
+    assert result.pdf_path == latex_dir / "mtg_rules.pdf"
+    assert compiler.compiled_paths == [cover_path]
+    assert any("latex_compile_started" in record.message for record in caplog.records)
+    assert any("latex_compile_finished" in record.message for record in caplog.records)
+
+
+def test_pipeline_compiles_after_updated_latex_sources_are_published(tmp_path):
+    latex_dir = tmp_path / "latex"
+    latex_dir.mkdir()
+    latex_path = latex_dir / "rules.tex"
+    latex_path.write_text(LEGACY_TEX, encoding="utf-8")
+    cover_path = latex_dir / "mtg_rules.tex"
+    cover_path.write_text("Effective as of February 27, 2026\n", encoding="utf-8")
+    compiler = FakeCompiler()
+
+    result = RulesEtlPipeline(
+        repository=DuckDBRulesRepository(tmp_path / "rules.duckdb"),
+        source=FakeSource(REMOTE_NEW_DATE),
+        latex_path=latex_path,
+        cover_path=cover_path,
+        compiler=compiler,
+    ).run()
+
+    assert result.status == "updated"
+    assert result.pdf_compiled is True
+    assert "Effective as of June 19, 2026" in compiler.cover_snapshots[0]
+    assert "These Magic rules apply to any Magic game." in compiler.rules_snapshots[0]
